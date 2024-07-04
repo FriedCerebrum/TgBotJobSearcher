@@ -3,19 +3,13 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler, CallbackQueryHandler
 from hh_parser import HHParser
+from cities import CITY_IDS  # Импортируем словарь городов из внешнего файла
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 parser = HHParser()
-
-# Словарь для хранения идентификаторов городов
-CITY_IDS = {
-    'Москва': 1,
-    'Санкт-Петербург': 2,
-    # Добавьте другие города по необходимости
-}
 
 # Состояния для ConversationHandler
 CHOOSING, SETTING_SALARY, SETTING_LOCATION, SETTING_VACANCY_COUNT = range(4)
