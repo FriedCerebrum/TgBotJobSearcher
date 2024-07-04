@@ -52,10 +52,17 @@ def settings(update: Update, context: CallbackContext):
         [InlineKeyboardButton("Количество вакансий", callback_data='set_vacancy_count')],
         [InlineKeyboardButton("Минимальная зарплата", callback_data='set_min_salary')],
         [InlineKeyboardButton("Локация поиска", callback_data='set_location')],
-        [InlineKeyboardButton("Занятость", callback_data='set_employment')]
+        [InlineKeyboardButton("Занятость", callback_data='set_employment')],
+        [InlineKeyboardButton("Назад", callback_data='back_to_main')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(settings_text + '\nВыберите параметр для настройки:', reply_markup=reply_markup)
+
+    if update.callback_query:
+        update.callback_query.edit_message_text(settings_text + '\nВыберите параметр для настройки:',
+                                                reply_markup=reply_markup)
+    else:
+        update.message.reply_text(settings_text + '\nВыберите параметр для настройки:', reply_markup=reply_markup)
+
     return CHOOSING
 
 
@@ -63,7 +70,9 @@ def set_vacancy_count(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     logger.info("Setting vacancy count selected")
-    query.edit_message_text('Введите количество вакансий, которые вы хотите видеть за раз:')
+    keyboard = [[InlineKeyboardButton("Назад", callback_data='back_to_settings')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text('Введите количество вакансий, которые вы хотите видеть за раз:', reply_markup=reply_markup)
     return SETTING_VACANCY_COUNT
 
 
@@ -71,7 +80,9 @@ def set_min_salary(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     logger.info("Setting minimum salary selected")
-    query.edit_message_text('Введите минимальную зарплату:')
+    keyboard = [[InlineKeyboardButton("Назад", callback_data='back_to_settings')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text('Введите минимальную зарплату:', reply_markup=reply_markup)
     return SETTING_SALARY
 
 
@@ -79,7 +90,9 @@ def set_location(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     logger.info("Setting location selected")
-    query.edit_message_text('Введите локацию для поиска:')
+    keyboard = [[InlineKeyboardButton("Назад", callback_data='back_to_settings')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text('Введите локацию для поиска:', reply_markup=reply_markup)
     return SETTING_LOCATION
 
 
@@ -89,11 +102,25 @@ def set_employment(update: Update, context: CallbackContext):
     logger.info("Setting employment selected")
     keyboard = [
         [InlineKeyboardButton("Полная занятость", callback_data='full')],
-        [InlineKeyboardButton("Неполная занятость", callback_data='part')]
+        [InlineKeyboardButton("Неполная занятость", callback_data='part')],
+        [InlineKeyboardButton("Назад", callback_data='back_to_settings')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text('Выберите тип занятости:', reply_markup=reply_markup)
     return SETTING_EMPLOYMENT
+
+
+def go_back_to_settings(update: Update, context: CallbackContext):
+    logger.info("Going back to settings")
+    return settings(update, context)
+
+
+def go_back_to_main(update: Update, context: CallbackContext):
+    logger.info("Going back to main menu")
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text('Меню закрыто.')
+    return ConversationHandler.END
 
 
 def handle_vacancy_count(update: Update, context: CallbackContext):
@@ -140,7 +167,7 @@ def handle_employment(update: Update, context: CallbackContext):
     query.answer()
     user_settings = get_user_settings(context)
     user_settings['employment_type'] = query.data
-    update.callback_query.edit_message_text(
+    query.edit_message_text(
         f"Тип занятости установлен на {'полная занятость' if query.data == 'full' else 'неполная занятость'}.")
     logger.info(f"Updated user settings: {user_settings}")
     return ConversationHandler.END
@@ -206,12 +233,25 @@ def main():
                 CallbackQueryHandler(set_vacancy_count, pattern='set_vacancy_count'),
                 CallbackQueryHandler(set_min_salary, pattern='set_min_salary'),
                 CallbackQueryHandler(set_location, pattern='set_location'),
-                CallbackQueryHandler(set_employment, pattern='set_employment')
+                CallbackQueryHandler(set_employment, pattern='set_employment'),
+                CallbackQueryHandler(go_back_to_main, pattern='back_to_main')
             ],
-            SETTING_VACANCY_COUNT: [MessageHandler(Filters.text & ~Filters.command, handle_vacancy_count)],
-            SETTING_SALARY: [MessageHandler(Filters.text & ~Filters.command, handle_min_salary)],
-            SETTING_LOCATION: [MessageHandler(Filters.text & ~Filters.command, handle_location)],
-            SETTING_EMPLOYMENT: [CallbackQueryHandler(handle_employment, pattern='^(full|part)$')]
+            SETTING_VACANCY_COUNT: [
+                MessageHandler(Filters.text & ~Filters.command, handle_vacancy_count),
+                CallbackQueryHandler(go_back_to_settings, pattern='back_to_settings')
+            ],
+            SETTING_SALARY: [
+                MessageHandler(Filters.text & ~Filters.command, handle_min_salary),
+                CallbackQueryHandler(go_back_to_settings, pattern='back_to_settings')
+            ],
+            SETTING_LOCATION: [
+                MessageHandler(Filters.text & ~Filters.command, handle_location),
+                CallbackQueryHandler(go_back_to_settings, pattern='back_to_settings')
+            ],
+            SETTING_EMPLOYMENT: [
+                CallbackQueryHandler(handle_employment, pattern='^(full|part)$'),
+                CallbackQueryHandler(go_back_to_settings, pattern='back_to_settings')
+            ]
         },
         fallbacks=[CommandHandler('settings', settings)]
     )
