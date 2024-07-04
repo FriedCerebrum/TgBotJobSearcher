@@ -31,21 +31,22 @@ class HHParser:
         else:
             raise Exception("Could not connect to the database after several attempts.")
 
-    def get_vacancies(self, query, salary=None, location=None):
-        logger.info(f"Fetching vacancies with query: {query}, salary: {salary}, location: {location}")
+    def get_vacancies(self, query, employment_type=None, salary=None, location=None):
         url = "https://api.hh.ru/vacancies"
         params = {
             "text": query,
+            "employment": employment_type,  # Указание типа занятости
             "salary": salary,
             "area": location
         }
+        logger.info(f"Fetching vacancies with query: {query}, employment: {employment_type}, salary: {salary}, location: {location}")
         response = requests.get(url, params=params)
         logger.info(f"Received response: {response.json()}")
         return response.json()
 
     def save_to_db(self, vacancies):
         cursor = self.db_conn.cursor()
-        for vacancy in vacancies.get('items', []):
+        for vacancy in vacancies['items']:
             skills = ', '.join(skill['name'] for skill in vacancy.get('key_skills', []))
             employment_type = vacancy.get('employment', {}).get('name', '')
             salary = vacancy.get('salary')
@@ -71,6 +72,6 @@ class HHParser:
         self.db_conn.commit()
         cursor.close()
 
-    def parse_and_save(self, query, salary=None, location=None):
-        vacancies = self.get_vacancies(query, salary, location)
+    def parse_and_save(self, query, employment_type=None, salary=None, location=None):
+        vacancies = self.get_vacancies(query, employment_type, salary, location)
         self.save_to_db(vacancies)
