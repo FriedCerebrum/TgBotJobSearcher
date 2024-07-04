@@ -26,7 +26,6 @@ def get_user_settings(context):
         context.chat_data['settings'] = {
             'vacancy_count': 5,
             'salary_min': None,
-            'salary_max': None,
             'location': None,
         }
     logger.info(f"User settings: {context.chat_data['settings']}")
@@ -42,7 +41,7 @@ def settings(update: Update, context: CallbackContext):
     logger.info("Received /settings command")
     keyboard = [
         [InlineKeyboardButton("Количество вакансий", callback_data='set_vacancy_count')],
-        [InlineKeyboardButton("Рамки зарплат", callback_data='set_salary_range')],
+        [InlineKeyboardButton("Минимальная зарплата", callback_data='set_min_salary')],
         [InlineKeyboardButton("Локация поиска", callback_data='set_location')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -56,30 +55,11 @@ def set_vacancy_count(update: Update, context: CallbackContext):
     query.edit_message_text('Введите количество вакансий, которые вы хотите видеть за раз:')
     return SETTING_VACANCY_COUNT
 
-def set_salary_range(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    logger.info("Setting salary range selected")
-    keyboard = [
-        [InlineKeyboardButton("Установить минимальную зарплату", callback_data='set_min_salary')],
-        [InlineKeyboardButton("Установить диапазон зарплат", callback_data='set_salary_range_full')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text('Выберите настройку зарплат:', reply_markup=reply_markup)
-    return CHOOSING
-
 def set_min_salary(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     logger.info("Setting minimum salary selected")
     query.edit_message_text('Введите минимальную зарплату:')
-    return SETTING_SALARY
-
-def set_salary_range_full(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    logger.info("Setting full salary range selected")
-    query.edit_message_text('Введите диапазон зарплат в формате "мин-макс":')
     return SETTING_SALARY
 
 def set_location(update: Update, context: CallbackContext):
@@ -101,21 +81,13 @@ def handle_vacancy_count(update: Update, context: CallbackContext):
     logger.info(f"Updated user settings: {user_settings}")
     return ConversationHandler.END
 
-def handle_salary_range(update: Update, context: CallbackContext):
-    logger.info("Handling salary range input")
+def handle_min_salary(update: Update, context: CallbackContext):
+    logger.info("Handling minimum salary input")
     user_settings = get_user_settings(context)
     try:
-        salary_range = update.message.text.split('-')
-        if len(salary_range) == 1:
-            user_settings['salary_min'] = int(salary_range[0])
-            user_settings['salary_max'] = None
-            update.message.reply_text(f'Минимальная зарплата установлена на {user_settings["salary_min"]}.')
-        elif len(salary_range) == 2:
-            user_settings['salary_min'] = int(salary_range[0])
-            user_settings['salary_max'] = int(salary_range[1])
-            update.message.reply_text(f'Диапазон зарплат установлен на {user_settings["salary_min"]} - {user_settings["salary_max"]}.')
-        else:
-            update.message.reply_text('Пожалуйста, введите диапазон зарплат в правильном формате.')
+        min_salary = int(update.message.text)
+        user_settings['salary_min'] = min_salary
+        update.message.reply_text(f'Минимальная зарплата установлена на {min_salary}.')
     except ValueError:
         update.message.reply_text('Пожалуйста, введите числовое значение.')
     logger.info(f"Updated user settings: {user_settings}")
@@ -183,11 +155,11 @@ def main():
         states={
             CHOOSING: [
                 CallbackQueryHandler(set_vacancy_count, pattern='set_vacancy_count'),
-                CallbackQueryHandler(set_salary_range, pattern='set_salary_range'),
+                CallbackQueryHandler(set_min_salary, pattern='set_min_salary'),
                 CallbackQueryHandler(set_location, pattern='set_location')
             ],
             SETTING_VACANCY_COUNT: [MessageHandler(Filters.text & ~Filters.command, handle_vacancy_count)],
-            SETTING_SALARY: [MessageHandler(Filters.text & ~Filters.command, handle_salary_range)],
+            SETTING_SALARY: [MessageHandler(Filters.text & ~Filters.command, handle_min_salary)],
             SETTING_LOCATION: [MessageHandler(Filters.text & ~Filters.command, handle_location)]
         },
         fallbacks=[CommandHandler('settings', settings)]
