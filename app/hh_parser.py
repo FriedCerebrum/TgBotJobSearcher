@@ -1,4 +1,3 @@
-# app/hh_parser.py
 import requests
 import os
 import psycopg2
@@ -32,19 +31,21 @@ class HHParser:
         else:
             raise Exception("Could not connect to the database after several attempts.")
 
-    def get_vacancies(self, query, employment_type=None, salary=None):
+    def get_vacancies(self, query, salary=None, location=None):
+        logger.info(f"Fetching vacancies with query: {query}, salary: {salary}, location: {location}")
         url = "https://api.hh.ru/vacancies"
         params = {
             "text": query,
-            "employment_type": employment_type,
-            "salary": salary
+            "salary": salary,
+            "area": location
         }
         response = requests.get(url, params=params)
+        logger.info(f"Received response: {response.json()}")
         return response.json()
 
     def save_to_db(self, vacancies):
         cursor = self.db_conn.cursor()
-        for vacancy in vacancies['items']:
+        for vacancy in vacancies.get('items', []):
             skills = ', '.join(skill['name'] for skill in vacancy.get('key_skills', []))
             employment_type = vacancy.get('employment', {}).get('name', '')
             salary = vacancy.get('salary')
@@ -70,6 +71,6 @@ class HHParser:
         self.db_conn.commit()
         cursor.close()
 
-    def parse_and_save(self, query, employment_type=None, salary=None):
-        vacancies = self.get_vacancies(query, employment_type, salary)
+    def parse_and_save(self, query, salary=None, location=None):
+        vacancies = self.get_vacancies(query, salary, location)
         self.save_to_db(vacancies)
