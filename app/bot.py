@@ -23,11 +23,28 @@ def handle_message(update: Update, context: CallbackContext):
     vacancies = parser.get_vacancies(query)
     parser.save_to_db(vacancies)
 
-    response = '\n'.join([f"{item['name']} - {item['salary']['from']} {item['salary']['currency']}"
-                          if item.get('salary') else f"{item['name']} - Зарплата не указана"
-                          for item in vacancies['items']])
-    update.message.reply_text(response)
-    logger.info("Responded with vacancies")
+    responses = []
+    for item in vacancies['items']:
+        title = item['name']
+        skills = ', '.join(skill['name'] for skill in item.get('key_skills', [])) if item.get('key_skills') else 'Не указаны'
+        employment_type = item.get('employment', {}).get('name', 'Не указано')
+        salary = f"{item['salary']['from']} {item['salary']['currency']}" if item.get('salary') else 'Не указана'
+        location = item.get('area', {}).get('name', 'Не указана')
+        experience = item.get('experience', {}).get('name', 'Не указан')
+        url = item.get('alternate_url', 'Ссылка не указана')
+
+        response = (f"Название: {title}\n"
+                    f"Навыки: {skills}\n"
+                    f"Формат работы: {employment_type}\n"
+                    f"Зарплата: {salary}\n"
+                    f"Локация: {location}\n"
+                    f"Уровень опыта: {experience}\n"
+                    f"Ссылка на вакансию: {url}\n")
+        responses.append(response)
+
+    for response in responses:
+        update.message.reply_text(response)
+        logger.info(f"Responded with vacancy: {response}")
 
 def main():
     logger.info("Starting bot...")
