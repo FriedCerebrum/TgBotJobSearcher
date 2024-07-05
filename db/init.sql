@@ -17,3 +17,12 @@ CREATE TABLE IF NOT EXISTS candidates (
     expected_salary INTEGER,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id BIGINT PRIMARY KEY,
+    vacancy_count INTEGER,
+    salary_min INTEGER,
+    location INTEGER,
+    employment_type VARCHAR(50)
+);
+

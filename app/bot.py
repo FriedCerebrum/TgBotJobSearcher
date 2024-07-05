@@ -17,28 +17,26 @@ CHOOSING, SETTING_SALARY, SETTING_LOCATION, SETTING_VACANCY_COUNT, SETTING_EMPLO
 
 
 # Используем контекст для хранения настроек для каждого пользователя
-def get_user_settings(context):
-    if 'settings' not in context.chat_data:
-        context.chat_data['settings'] = {
-            'vacancy_count': 5,
-            'salary_min': None,
-            'location': None,
-            'employment_type': None
-        }
-    logger.info(f"User settings: {context.chat_data['settings']}")
-    return context.chat_data['settings']
+def get_user_settings(context, user_id):
+    parser = context.bot_data['parser']
+    settings = parser.get_user_settings(user_id)
+    context.chat_data['settings'] = settings
+    return settings
 
+def save_user_settings(context, user_id, settings):
+    parser = context.bot_data['parser']
+    parser.save_user_settings(user_id, settings)
 
 def start(update: Update, context: CallbackContext):
-    logger.info("Received /start command")
+    user_id = update.effective_user.id
+    get_user_settings(context, user_id)
     update.message.reply_text(
         'Введите название вакансии или используйте /settings для настройки параметров поиска.'
     )
 
-
 def settings(update: Update, context: CallbackContext):
-    logger.info("Received /settings command")
-    user_settings = get_user_settings(context)
+    user_id = update.effective_user.id
+    user_settings = get_user_settings(context, user_id)
 
     settings_text = (
         f"Текущие настройки поиска:\n"
@@ -124,53 +122,43 @@ def go_back_to_main(update: Update, context: CallbackContext):
 
 
 def handle_vacancy_count(update: Update, context: CallbackContext):
-    logger.info("Handling vacancy count input")
     try:
         count = int(update.message.text)
-        user_settings = get_user_settings(context)
+        user_settings = get_user_settings(context, update.effective_user.id)
         user_settings['vacancy_count'] = count
+        save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Количество вакансий установлено на {count}.')
     except ValueError:
         update.message.reply_text('Пожалуйста, введите числовое значение.')
-    logger.info(f"Updated user settings: {user_settings}")
-    return ConversationHandler.END
-
 
 def handle_min_salary(update: Update, context: CallbackContext):
-    logger.info("Handling minimum salary input")
-    user_settings = get_user_settings(context)
     try:
         min_salary = int(update.message.text)
+        user_settings = get_user_settings(context, update.effective_user.id)
         user_settings['salary_min'] = min_salary
+        save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Минимальная зарплата установлена на {min_salary}.')
     except ValueError:
         update.message.reply_text('Пожалуйста, введите числовое значение.')
-    logger.info(f"Updated user settings: {user_settings}")
-    return ConversationHandler.END
-
 
 def handle_location(update: Update, context: CallbackContext):
-    logger.info("Handling location input")
     location = update.message.text
-    user_settings = get_user_settings(context)
+    user_settings = get_user_settings(context, update.effective_user.id)
     user_settings['location'] = CITY_IDS.get(location, None)
     if user_settings['location'] is None:
         update.message.reply_text(f'Неизвестная локация: {location}. Пожалуйста, введите корректное название города.')
     else:
+        save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Локация поиска установлена на {location}.')
-    logger.info(f"Updated user settings: {user_settings}")
-    return ConversationHandler.END
-
 
 def handle_employment(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.answer()
-    user_settings = get_user_settings(context)
+    user_settings = get_user_settings(context, update.effective_user.id)
     user_settings['employment_type'] = query.data
-    query.edit_message_text(
-        f"Тип занятости установлен на {'полная занятость' if query.data == 'full' else 'неполная занятость'}.")
-    logger.info(f"Updated user settings: {user_settings}")
-    return ConversationHandler.END
+    save_user_settings(context, update.effective_user.id, user_settings)
+    employment_text = 'полная занятость' if query.data == 'full' else 'неполная занятость'
+    query.edit_message_text(f"Тип занятости установлен на {employment_text}.")
+
 
 
 def handle_message(update: Update, context: CallbackContext):
@@ -216,9 +204,11 @@ def handle_message(update: Update, context: CallbackContext):
 
 
 def main():
-    logger.info("Starting bot...")
+    parser = HHParser()
+
     updater = Updater(os.getenv('TELEGRAM_TOKEN'), use_context=True)
     dp = updater.dispatcher
+    dp.bot_data['parser'] = parser
 
     # Регистрация команд для меню команд в Telegram
     updater.bot.set_my_commands([
@@ -258,7 +248,6 @@ def main():
 
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(settings_handler)
-
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     updater.start_polling()

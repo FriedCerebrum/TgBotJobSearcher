@@ -75,3 +75,37 @@ class HHParser:
     def parse_and_save(self, query, employment_type=None, salary=None, location=None):
         vacancies = self.get_vacancies(query, employment_type, salary, location)
         self.save_to_db(vacancies)
+
+    def get_user_settings(self, user_id):
+        cursor = self.db_conn.cursor()
+        cursor.execute("SELECT vacancy_count, salary_min, location, employment_type FROM user_settings WHERE user_id = %s", (user_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        if result:
+            return {
+                'vacancy_count': result[0],
+                'salary_min': result[1],
+                'location': result[2],
+                'employment_type': result[3]
+            }
+        else:
+            return {
+                'vacancy_count': 5,
+                'salary_min': None,
+                'location': None,
+                'employment_type': None
+            }
+
+    def save_user_settings(self, user_id, settings):
+        cursor = self.db_conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_settings (user_id, vacancy_count, salary_min, location, employment_type)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                vacancy_count = EXCLUDED.vacancy_count,
+                salary_min = EXCLUDED.salary_min,
+                location = EXCLUDED.location,
+                employment_type = EXCLUDED.employment_type
+        """, (user_id, settings['vacancy_count'], settings['salary_min'], settings['location'], settings['employment_type']))
+        self.db_conn.commit()
+        cursor.close()
