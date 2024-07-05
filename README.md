@@ -15,7 +15,7 @@
 ### Шаг 1: Клонирование репозитория
 
 ```bash
-git clone [https://github.com/yourusername/telegram-job-search-bot.git](https://github.com/FriedCerebrum/TgBotJobSearcher.git)
+git clone https://github.com/FriedCerebrum/TgBotJobSearcher.git
 cd telegram-job-search-bot
 ```
 
