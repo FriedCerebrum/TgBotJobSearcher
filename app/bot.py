@@ -1,8 +1,7 @@
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler, \
-    CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler, CallbackQueryHandler
 from hh_parser import HHParser
 from cities import CITY_IDS  # Импортируем словарь городов из внешнего файла
 
@@ -14,7 +13,6 @@ parser = HHParser()
 
 # Состояния для ConversationHandler
 CHOOSING, SETTING_SALARY, SETTING_LOCATION, SETTING_VACANCY_COUNT, SETTING_EMPLOYMENT = range(5)
-
 
 # Используем контекст для хранения настроек для каждого пользователя
 def get_user_settings(context, user_id):
@@ -30,9 +28,7 @@ def save_user_settings(context, user_id, settings):
 def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     get_user_settings(context, user_id)
-    update.message.reply_text(
-        'Введите название вакансии или используйте /settings для настройки параметров поиска.'
-    )
+    update.message.reply_text('Введите название вакансии или используйте /settings для настройки параметров поиска.')
 
 def settings(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
@@ -56,13 +52,11 @@ def settings(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if update.callback_query:
-        update.callback_query.edit_message_text(settings_text + '\nВыберите параметр для настройки:',
-                                                reply_markup=reply_markup)
+        update.callback_query.edit_message_text(settings_text + '\nВыберите параметр для настройки:', reply_markup=reply_markup)
     else:
         update.message.reply_text(settings_text + '\nВыберите параметр для настройки:', reply_markup=reply_markup)
 
     return CHOOSING
-
 
 def set_vacancy_count(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -73,7 +67,6 @@ def set_vacancy_count(update: Update, context: CallbackContext):
     query.edit_message_text('Введите количество вакансий, которые вы хотите видеть за раз:', reply_markup=reply_markup)
     return SETTING_VACANCY_COUNT
 
-
 def set_min_salary(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -83,7 +76,6 @@ def set_min_salary(update: Update, context: CallbackContext):
     query.edit_message_text('Введите минимальную зарплату:', reply_markup=reply_markup)
     return SETTING_SALARY
 
-
 def set_location(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -92,7 +84,6 @@ def set_location(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.edit_message_text('Введите локацию для поиска:', reply_markup=reply_markup)
     return SETTING_LOCATION
-
 
 def set_employment(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -107,11 +98,9 @@ def set_employment(update: Update, context: CallbackContext):
     query.edit_message_text('Выберите тип занятости:', reply_markup=reply_markup)
     return SETTING_EMPLOYMENT
 
-
 def go_back_to_settings(update: Update, context: CallbackContext):
     logger.info("Going back to settings")
     return settings(update, context)
-
 
 def go_back_to_main(update: Update, context: CallbackContext):
     logger.info("Going back to main menu")
@@ -120,7 +109,6 @@ def go_back_to_main(update: Update, context: CallbackContext):
     query.edit_message_text('Меню закрыто.')
     return ConversationHandler.END
 
-
 def handle_vacancy_count(update: Update, context: CallbackContext):
     try:
         count = int(update.message.text)
@@ -128,8 +116,10 @@ def handle_vacancy_count(update: Update, context: CallbackContext):
         user_settings['vacancy_count'] = count
         save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Количество вакансий установлено на {count}.')
+        return CHOOSING
     except ValueError:
         update.message.reply_text('Пожалуйста, введите числовое значение.')
+        return SETTING_VACANCY_COUNT
 
 def handle_min_salary(update: Update, context: CallbackContext):
     try:
@@ -138,8 +128,10 @@ def handle_min_salary(update: Update, context: CallbackContext):
         user_settings['salary_min'] = min_salary
         save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Минимальная зарплата установлена на {min_salary}.')
+        return CHOOSING
     except ValueError:
         update.message.reply_text('Пожалуйста, введите числовое значение.')
+        return SETTING_SALARY
 
 def handle_location(update: Update, context: CallbackContext):
     location = update.message.text
@@ -147,9 +139,11 @@ def handle_location(update: Update, context: CallbackContext):
     user_settings['location'] = CITY_IDS.get(location, None)
     if user_settings['location'] is None:
         update.message.reply_text(f'Неизвестная локация: {location}. Пожалуйста, введите корректное название города.')
+        return SETTING_LOCATION
     else:
         save_user_settings(context, update.effective_user.id, user_settings)
         update.message.reply_text(f'Локация поиска установлена на {location}.')
+        return CHOOSING
 
 def handle_employment(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -158,18 +152,18 @@ def handle_employment(update: Update, context: CallbackContext):
     save_user_settings(context, update.effective_user.id, user_settings)
     employment_text = 'полная занятость' if query.data == 'full' else 'неполная занятость'
     query.edit_message_text(f"Тип занятости установлен на {employment_text}.")
-
+    return CHOOSING
 
 
 def handle_message(update: Update, context: CallbackContext):
     query = update.message.text
+    user_id = update.effective_user.id
     logger.info(f"Received message: {query}")
     update.message.reply_text('Ищу вакансии...')
 
-    user_settings = get_user_settings(context)
+    user_settings = get_user_settings(context, user_id)
     logger.info(f"User settings used for search: {user_settings}")
-    vacancies = parser.get_vacancies(query, employment_type=user_settings['employment_type'],
-                                     salary=user_settings['salary_min'], location=user_settings['location'])
+    vacancies = parser.get_vacancies(query, employment_type=user_settings['employment_type'], salary=user_settings['salary_min'], location=user_settings['location'])
     parser.save_to_db(vacancies)
 
     responses = []
@@ -180,8 +174,7 @@ def handle_message(update: Update, context: CallbackContext):
         if count >= user_settings['vacancy_count']:
             break
         title = item['name']
-        skills = ', '.join(skill['name'] for skill in item.get('key_skills', [])) if item.get(
-            'key_skills') else 'Не указаны'
+        skills = ', '.join(skill['name'] for skill in item.get('key_skills', [])) if item.get('key_skills') else 'Не указаны'
         employment_type = item.get('employment', {}).get('name', 'Не указано')
         salary = f"{item['salary']['from']} {item['salary']['currency']}" if item.get('salary') else 'Не указана'
         location = item.get('area', {}).get('name', 'Не указана')
@@ -201,7 +194,6 @@ def handle_message(update: Update, context: CallbackContext):
     for response in responses:
         update.message.reply_text(response)
         logger.info(f"Responded with vacancy: {response}")
-
 
 def main():
     parser = HHParser()
@@ -252,7 +244,6 @@ def main():
 
     updater.start_polling()
     updater.idle()
-
 
 if __name__ == '__main__':
     main()
